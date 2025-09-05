@@ -25,3 +25,28 @@ def download(url: str):
         "url": info.get("webpage_url"),
         "duration": info.get("duration"),
     }
+
+@app.get("/download-audio")
+def download_audio(url: str):
+    """Download audio and return an MP3 file."""
+    temp_filename = f"/tmp/{uuid.uuid4()}.mp3"
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': temp_filename,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'quiet': True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+
+    return FileResponse(
+        temp_filename,
+        media_type="audio/mpeg",
+        filename=os.path.basename(temp_filename),
+    )
