@@ -1,23 +1,19 @@
-FROM node:dubnium-stretch-slim
+FROM python:3.11-slim
 
-WORKDIR /home/app
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y ffmpeg curl && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN apt update \
-    && apt install -y curl ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# Install yt-dlp
+RUN pip install --no-cache-dir yt-dlp fastapi uvicorn
 
-# This is on a separate line because youtube-dl needs to be frequently updated
-RUN apt update \
-    && apt install -y youtube-dl \
-    && rm -rf /var/lib/apt/lists/*
+# Copy app
+WORKDIR /app
+COPY . /app
 
-# Only install node_modules if the package.json changes
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY . ./
-RUN mkdir -p public/temp \
-    && npm run build
-
+# Expose port
 EXPOSE 3000
-CMD [ "npm", "start" ]
+
+# Run the webserver
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "3000"]
