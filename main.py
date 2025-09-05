@@ -1,6 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 import yt_dlp
 import os
+import uuid   
 
 app = FastAPI()
 
@@ -12,20 +14,6 @@ def home():
 def health():
     return {"status": "ok"}
 
-@app.get("/download")
-def download(url: str):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': '%(title)s.%(ext)s',
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)  # don’t download, just info
-    return {
-        "title": info.get("title"),
-        "url": info.get("webpage_url"),
-        "duration": info.get("duration"),
-    }
-
 @app.get("/download-audio")
 def download_audio(url: str):
     """Download audio and return an MP3 file."""
@@ -33,17 +21,23 @@ def download_audio(url: str):
 
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': temp_filename,
+        'outtmpl': temp_filename.replace(".mp3", ""),
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'quiet': True,
+        'quiet': False,
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not os.path.exists(temp_filename):
+        raise HTTPException(status_code=500, detail="Audio file was not created")
 
     return FileResponse(
         temp_filename,
